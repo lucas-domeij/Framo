@@ -44,8 +44,17 @@ export function renderToCanvas(
   canvas.height = outputHeight * exportScale;
   ctx.scale(exportScale, exportScale);
 
-  // Draw gradient background
-  drawGradient(ctx, outputWidth, outputHeight, settings);
+  // Draw gradient background (clipped to rounded rect if needed)
+  if (settings.borderRadius > 0) {
+    ctx.save();
+    ctx.beginPath();
+    drawRoundedRect(ctx, 0, 0, outputWidth, outputHeight, settings.borderRadius);
+    ctx.clip();
+    drawGradient(ctx, outputWidth, outputHeight, settings);
+    ctx.restore();
+  } else {
+    drawGradient(ctx, outputWidth, outputHeight, settings);
+  }
 
   // Draw noise if enabled
   if (settings.noiseEnabled) {
