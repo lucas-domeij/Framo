@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import UploadDropzone from '@/components/UploadDropzone';
 import PreviewCanvas from '@/components/PreviewCanvas';
 import ControlsPanel from '@/components/ControlsPanel';
@@ -17,6 +17,41 @@ export default function Home() {
     setImageData(data);
     setSettings((prev) => ({ ...prev, scalingConfirmed: false }));
   }, []);
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const src = ev.target?.result as string;
+            const img = new window.Image();
+            img.onload = () => {
+              handleImageLoad({
+                src,
+                width: img.width,
+                height: img.height,
+                name: 'pasted-image',
+              });
+            };
+            img.src = src;
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [handleImageLoad]);
 
   const handleSettingsChange = useCallback((newSettings: FrameSettings) => {
     // Reset scaling confirmation when size settings change
