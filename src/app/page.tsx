@@ -97,14 +97,7 @@ export default function Home() {
             <h1 className="text-xl font-semibold text-white tracking-tight">Framo</h1>
             <p className="text-sm text-zinc-500">Frame screenshots. Nothing else.</p>
           </div>
-          {imageData && (
-            <button
-              onClick={handleReset}
-              className="text-sm text-zinc-400 hover:text-white transition-colors"
-            >
-              Start over
-            </button>
-          )}
+{/* Start over button moved to floating position */}
         </div>
       </header>
 
@@ -158,12 +151,18 @@ export default function Home() {
             </aside>
 
             {/* Preview Area */}
-            <div className="flex-1 bg-zinc-900/50 checkerboard overflow-hidden">
+            <div className="flex-1 bg-zinc-900/50 checkerboard overflow-hidden relative">
               <PreviewCanvas
                 imageData={imageData}
                 settings={settings}
                 onRenderResult={handleRenderResult}
               />
+              <button
+                onClick={handleReset}
+                className="absolute top-4 right-4 px-3 py-1.5 text-sm text-zinc-400 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 backdrop-blur-sm border border-zinc-700 rounded-lg transition-all shadow-lg"
+              >
+                Start over
+              </button>
             </div>
           </div>
         )}
