@@ -1,17 +1,20 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect } from 'react';
-import UploadDropzone from '@/components/UploadDropzone';
-import PreviewCanvas from '@/components/PreviewCanvas';
-import ControlsPanel from '@/components/ControlsPanel';
-import ExportButtons from '@/components/ExportButtons';
-import { DEFAULT_SETTINGS, FrameSettings, ImageData } from '@/types';
-import { RenderResult } from '@/utils/canvasRenderer';
+import { useState, useCallback, useEffect } from "react";
+import UploadDropzone from "@/components/UploadDropzone";
+import PreviewCanvas from "@/components/PreviewCanvas";
+import ControlsPanel from "@/components/ControlsPanel";
+import ExportButtons from "@/components/ExportButtons";
+import { DEFAULT_SETTINGS, FrameSettings, ImageData } from "@/types";
+import { RenderResult, copyToClipboard } from "@/utils/canvasRenderer";
 
 export default function Home() {
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [settings, setSettings] = useState<FrameSettings>(DEFAULT_SETTINGS);
   const [renderResult, setRenderResult] = useState<RenderResult | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">(
+    "idle",
+  );
 
   const handleImageLoad = useCallback((data: ImageData) => {
     setImageData(data);
@@ -24,7 +27,7 @@ export default function Home() {
       if (!items) return;
 
       for (const item of items) {
-        if (item.type.startsWith('image/')) {
+        if (item.type.startsWith("image/")) {
           e.preventDefault();
           const file = item.getAsFile();
           if (!file) return;
@@ -38,7 +41,7 @@ export default function Home() {
                 src,
                 width: img.width,
                 height: img.height,
-                name: 'pasted-image',
+                name: "pasted-image",
               });
             };
             img.src = src;
@@ -49,20 +52,69 @@ export default function Home() {
       }
     };
 
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
   }, [handleImageLoad]);
 
-  const handleSettingsChange = useCallback((newSettings: FrameSettings) => {
-    // Reset scaling confirmation when size settings change
-    if (
-      newSettings.sizeMode !== settings.sizeMode ||
-      newSettings.fixedWidth !== settings.fixedWidth
-    ) {
-      newSettings.scalingConfirmed = false;
-    }
-    setSettings(newSettings);
-  }, [settings]);
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Check for Cmd+C (Mac) or Ctrl+C (Windows/Linux)
+      const isCopyShortcut = (e.metaKey || e.ctrlKey) && e.key === "c";
+
+      if (!isCopyShortcut) return;
+
+      // Don't intercept if user is typing in an input field
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Only copy if we can export (image loaded and rendered)
+      const scalingRequired =
+        settings.sizeMode === "fixed" &&
+        imageData !== null &&
+        imageData.width > settings.fixedWidth - settings.padding * 2;
+
+      const canExport =
+        imageData !== null &&
+        renderResult !== null &&
+        (!scalingRequired || settings.scalingConfirmed);
+
+      if (!canExport || !renderResult?.canvas) return;
+
+      e.preventDefault();
+
+      try {
+        await copyToClipboard(renderResult.canvas);
+        setCopyStatus("success");
+        setTimeout(() => setCopyStatus("idle"), 2000);
+      } catch {
+        setCopyStatus("error");
+        setTimeout(() => setCopyStatus("idle"), 2000);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [imageData, settings, renderResult]);
+
+  const handleSettingsChange = useCallback(
+    (newSettings: FrameSettings) => {
+      // Reset scaling confirmation when size settings change
+      if (
+        newSettings.sizeMode !== settings.sizeMode ||
+        newSettings.fixedWidth !== settings.fixedWidth
+      ) {
+        newSettings.scalingConfirmed = false;
+      }
+      setSettings(newSettings);
+    },
+    [settings],
+  );
 
   const handleConfirmScaling = useCallback(() => {
     setSettings((prev) => ({ ...prev, scalingConfirmed: true }));
@@ -73,7 +125,7 @@ export default function Home() {
   }, []);
 
   const scalingRequired =
-    settings.sizeMode === 'fixed' &&
+    settings.sizeMode === "fixed" &&
     imageData !== null &&
     imageData.width > settings.fixedWidth - settings.padding * 2;
 
@@ -94,10 +146,14 @@ export default function Home() {
       <header className="flex-shrink-0 border-b border-zinc-800 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-white tracking-tight">Framo</h1>
-            <p className="text-sm text-zinc-500">Frame screenshots. Nothing else.</p>
+            <h1 className="text-xl font-semibold text-white tracking-tight">
+              Framo
+            </h1>
+            <p className="text-sm text-zinc-500">
+              Frame screenshots. Nothing else.
+            </p>
           </div>
-{/* Start over button moved to floating position */}
+          {/* Start over button moved to floating position */}
         </div>
       </header>
 
@@ -128,7 +184,9 @@ export default function Home() {
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm text-white truncate">{imageData.name}</p>
+                    <p className="text-sm text-white truncate">
+                      {imageData.name}
+                    </p>
                     <p className="text-xs text-zinc-500">
                       {imageData.width} × {imageData.height}px
                     </p>
@@ -167,6 +225,57 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* Toast notification for keyboard copy */}
+      {copyStatus !== "idle" && (
+        <div
+          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 px-4 py-3 rounded-lg shadow-lg backdrop-blur-sm border transition-all z-50 ${
+            copyStatus === "success"
+              ? "bg-green-500/90 border-green-400 text-white"
+              : "bg-red-500/90 border-red-400 text-white"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {copyStatus === "success" ? (
+              <>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <span className="text-sm font-medium">
+                  Copied to clipboard!
+                </span>
+              </>
+            ) : (
+              <>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+                <span className="text-sm font-medium">Copy failed</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
