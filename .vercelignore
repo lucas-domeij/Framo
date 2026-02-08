@@ -1,0 +1,2 @@
+# Exclude MCP server from Vercel deployments
+mcp-server/
