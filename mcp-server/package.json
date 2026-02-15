@@ -4,6 +4,7 @@
   "description": "MCP server for framing screenshots using Framo's rendering logic",
   "type": "module",
   "bin": {
+    "framo": "./dist/cli.js",
     "framo-mcp": "./dist/index.js"
   },
   "scripts": {
